@@ -14,24 +14,45 @@ Built for the [Decentraland Friendzone Mobile Buildathon](https://dorahacks.io/h
 
 ## Play
 
-Two constellations, chained back to back:
+Ten constellations, chained back to back, easiest first:
 
-| | Stars | Lines |
-|---|---|---|
-| The Big Dipper | 7 | 7 |
-| Orion | 7 | 7 |
+| | Stars | Lines | |
+|---|---|---|---|
+| Triangulum | 3 | 3 | ● |
+| Crux | 4 | 2 | ● |
+| Corvus | 5 | 5 | ● |
+| Cassiopeia | 5 | 4 | ● |
+| Lyra | 5 | 5 | ●● |
+| Aquila | 5 | 4 | ●● |
+| Cygnus | 6 | 5 | ●● |
+| The Big Dipper | 7 | 7 | ●● |
+| Orion | 7 | 7 | ●●● |
+| Scorpius | 8 | 7 | ●●● |
 
-- **Tap a star** to pick it up — it **pulses** so you know it's armed; **tap a second** to draw the line.
+- **Tap a star** to pick it up — it **pulses** so you know it's armed; **tap a
+  second** and a line is *drawn* between them, growing from the star you tapped
+  first. Each star sounds a different note, so tracing a shape plays a little
+  melody.
 - **Tap the same star twice** to cancel a selection.
-- **Re-draw an existing line** to erase it. Wrong lines never block a solve.
+- **Re-draw an existing line** to erase it. Wrong lines never block a solve and
+  never break a streak — the game says "not that one", softly, and moves on.
 - **Tap `?`** for a nudge — one star from a missing edge lights up. It never
-  draws the line for you.
-- After ~12 seconds of inactivity that hint appears on its own.
+  draws the line for you. After ~12 seconds of inactivity it appears on its own.
 
-Solve it and the lines flare, a **mythic figure blooms** behind them in glowing
-line-art — the Great Bear around the Dipper, the Hunter around Orion — a chime
-rings, and the banner names both. Take the next sky when the group is ready, or
-let it roll on by itself.
+Correct edges build a **streak**, and the streak drives a multiplier. Each board
+is scored against a par time derived from its own edge count, and rated one to
+three stars — never zero, because solving is never failing. Total score walks a
+rank ladder from **Stargazer** to **Celestial Cartographer**, and a **sky atlas**
+strip across the top tracks which of the ten you have taken.
+
+Solve one and the lines flare in sequence, a **mythic figure draws itself on**
+behind them in glowing line-art — the Great Bear around the Dipper, the Hunter
+around Orion, the Scorpion around Scorpius — a shockwave rolls out across the
+dome and a chime rings while the drone ducks under it. The banner names the
+constellation, the figure, your rating and your time. Take the next sky when the
+group is ready, or let it roll on by itself.
+
+Every line you draw appears instantly on everyone else's screen.
 
 ---
 
@@ -66,20 +87,31 @@ npm run deploy -- --target-content https://worlds-content-server.decentraland.or
 
 ```
 src/
-  index.ts          entry point, UI renderer setup
+  index.ts          entry point: builds every pool, then registers the systems
   config.ts         every tunable — sizes, colours, glow, timings
   constellations.ts star + edge data, authored in 2D and projected onto the dome
+  figures.ts        the mythic outlines, drawn on stroke by stroke at solve
   state.ts          the single synced component (the whole multiplayer surface)
+  scoring.ts        streaks, score, star ratings, ranks — pure, no ECS at all
   stars.ts          interactive star pool: anchor + oversized hit box + billboard
-  lines.ts          pre-allocated line pool, drawn from the synced bitmask
-  game.ts           tap handling, solve detection, reveal, board advance
+  lines.ts          pre-allocated line pool, animated from the synced bitmask
+  game.ts           tap handling, solve detection, and all the choreography
   hints.ts          the passive hint
-  figures.ts        the mythic outlines revealed on solve
+  vfx.ts            pooled meteors, ripples, sparks, shockwaves, bursts, motes
+  audio.ts          a round-robin voice pool for ten synthesised effects
+  dome.ts           floor, horizon ring, background starfield
+  scenery.ts        telescope, compass rose, horizon ridge, moon, benches
+  wayfinding.ts     which way to turn to find the sky that matters
   presence.ts       who else is in the dome
   ui.tsx            the HUD
 tools/
   generate_assets.py  synthesises every binary asset this scene ships
+  sim/                the offline playthrough — see Testing below
+  browser-test.mjs    Chrome + GPU smoke test
+  gpu-preview.sh      opens the preview on the discrete GPU
 ```
+
+**301 entities**, allocated during load and flat for the entire session.
 
 **Multiplayer in one component.** All shared state is a single `GameState`
 component on a single synced entity: which constellation is up, a bitmask of
@@ -93,9 +125,15 @@ two players can be mid-selection at once without fighting over a shared cursor.
 **Pools, not churn.** Stars and lines are allocated once at load and toggled
 with `VisibilityComponent`. Entity count is flat for the whole session.
 
-**No per-frame work beyond timers.** The one system ticks a hint timer and a
-reveal timer, and re-renders lines only when the mask actually changes. The
-star pulse is the only continuous animation and it touches at most two entities.
+**Animation is rationed, not spread out.** A material write on the real client
+is a CRDT message plus a shader-parameter update, and it is the cheapest way for
+a scene full of movement to become unaffordable on a phone without anything
+looking obviously wrong. So every animator early-outs on a single counter when
+it has nothing to do, the idle star shimmer recomputes eight times a second
+instead of sixty, the drifting motes update at fifteen, the scenery at ten, and
+a figure stroke stops being written the moment it settles. The test suite
+asserts the resulting rate rather than trusting any of it: **64 material writes
+per second** in an idle dome, **952 for an entire solve**.
 
 **The figure completes your drawing.** Orion's outline deliberately omits the
 shoulders, belt and legs — those are already on screen as the lines the players
@@ -111,6 +149,49 @@ licence terms would have to travel with the repo. Re-run it any time:
 
 ---
 
+## Testing
+
+```bash
+npm test              # the offline playthrough
+npm run test:mobile   # same, with isMobile() true, and verbose
+npm run test:browser  # Chrome on the discrete GPU
+```
+
+**The offline playthrough** is the primary test. The scene's real host is an
+Explorer that cannot be scripted and cannot be stepped frame by frame, so
+`tools/sim` bundles the actual source against a mock runtime, calls `main()`,
+and then plays the game the way a player does — it reads the HUD, presses the
+HUD's own buttons, and taps stars through the pointer callbacks the scene
+registered on its own entities. Nothing reaches into game logic directly, so a
+button wired to nothing, a tap target on the wrong entity, or a board that fails
+to advance all fail here.
+
+`@dcl/sdk/math` is deliberately *not* mocked; it resolves to the real
+`@dcl/ecs-math`, because the dome projection and the quaternion line rotations
+are exactly what a fake would paper over.
+
+It plays all ten constellations end to end and asserts, among other things, that
+the entity count never moves, that twenty idle seconds throw nothing, that every
+solved board scores between one and three stars, and that the material write
+rate stays inside budget.
+
+**The browser test** covers the one thing the simulator cannot: that the bundle
+the CLI produced loads in a real client, on real hardware. It boots the preview
+server, resolves the scene entity from the content manifest, fetches the file
+`scene.json` names as `main`, then opens the explorer in Chrome and screenshots
+it into `docs/shots/`. Chrome is launched through the NVIDIA ICD with ANGLE on
+Vulkan and the run fails if it finds itself on SwiftShader — a software
+rasteriser would produce numbers that mean nothing.
+
+To play it yourself on the discrete GPU:
+
+```bash
+npm run start:web -- --no-browser   # terminal 1
+npm run preview:gpu 8000            # terminal 2
+```
+
+---
+
 ## Mobile-first, specifically
 
 This scene was built against the mobile client's real constraints, not adapted
@@ -118,7 +199,10 @@ down from desktop:
 
 - **No point lights.** `PBPointLight` is not functional on the mobile client, so
   every glow in the scene is an emissive PBR material.
-- **No particle systems.** Unimplemented on mobile; effects are geometry-based.
+- **No particle systems.** Unimplemented on mobile, so every effect in the scene
+  — meteors, tap ripples, travel sparks, the solve shockwave, edge bursts, the
+  drifting motes — is pooled geometry with an emissive material, allocated at
+  load and shown or hidden rather than spawned.
 - **Safe areas.** The renderer runs at `screenInset: 'interactable'` on mobile,
   keeping the HUD clear of the joystick, chat and camera controls. Desktop falls
   back to `'device'`, because `'interactable'` would waste a quarter of a desktop
@@ -175,6 +259,11 @@ Stated plainly rather than discovered by a judge:
   no penalty for this, and no fail state to corrupt.
 - **`images/scene-thumbnail.png` is still the template placeholder.** Replace it
   with a real screenshot before submitting.
+- **Scoring is per-session and per-client.** Streaks, score and rank live in
+  plain module state, not in the synced component — only the board itself and
+  the dome's fastest time are shared. Two players in the same dome are working
+  the same puzzle but keeping their own score, which is the right default for a
+  co-op game and the wrong one for a leaderboard.
 - **SDK pinned to 7.26.0.** Workshop #3 recommended 7.27+ for desktop/mobile UI
   scaling parity, but 7.27 is not published to npm yet. Run `npm run upgrade`
   once it lands.
