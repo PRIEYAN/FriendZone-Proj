@@ -83,3 +83,42 @@ export const GLOW = {
 
 /** Decorative, non-interactive stars scattered across the dome for atmosphere. */
 export const BACKGROUND_STAR_COUNT = 70
+
+/**
+ * Ambient meteor rate. Roughly one every eight seconds: often enough that a
+ * player standing still always has something to look at, rare enough that it
+ * still reads as an event rather than weather.
+ */
+export const METEORS_PER_MINUTE = 7
+
+/**
+ * How many correct edges in a row count as a milestone. Three is deliberate:
+ * the easiest constellation only has two or three edges, so a longer milestone
+ * would mean the opening board could never produce one, and the first thing a
+ * new player learns about the streak system would be that it does not fire.
+ */
+export const STREAK_MILESTONE = 3
+
+/** How long a line takes to grow between its two stars, in seconds. */
+export const LINE_DRAW_SECONDS = 0.28
+
+/**
+ * Stagger between stars in the arrival wave when a new sky loads. Small enough
+ * that the whole shape is up in well under a second even at eight stars.
+ */
+export const STAR_POP_STAGGER = 0.07
+export const STAR_POP_SECONDS = 0.45
+
+/**
+ * Idle-star shimmer. `hz` is how often the effect is *recomputed*, not how fast
+ * it moves — material writes are the expensive part on mobile, so the twinkle
+ * is rationed to eight updates a second rather than sixty. `rateHz` is the
+ * speed of the underlying wave and `depth` its amplitude, kept small so this
+ * is noticed at the edge of vision and never competes with a selected star.
+ */
+export const TWINKLE = {
+  hz: 8,
+  rateHz: 0.22,
+  depth: 0.3
+} as const
+

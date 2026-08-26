@@ -32,8 +32,11 @@ import {
   MAX_POINTER_DISTANCE,
   PULSE,
   STAR_HIT_SIZE,
+  STAR_POP_SECONDS,
+  STAR_POP_STAGGER,
   STAR_TEXTURE,
-  STAR_VISUAL_SIZE
+  STAR_VISUAL_SIZE,
+  TWINKLE
 } from './config'
 import { ConstellationDef, MAX_STARS, starWorldPosition } from './constellations'
 
@@ -45,6 +48,12 @@ type StarSlot = {
   visual: Entity
   position: Vector3.MutableVector3
   active: boolean
+  /** What setStarVisual last put here, so the animators can restore it. */
+  state: StarVisualState
+  /** Scale multiplier for the current visual state, before any animation. */
+  baseScale: number
+  /** Per-star phase, so the idle field twinkles out of step with itself. */
+  phase: number
 }
 
 const slots: StarSlot[] = []
@@ -53,6 +62,12 @@ const slots: StarSlot[] = []
 let pulseSelected: number | null = null
 let pulseHinted: number | null = null
 let pulseClock = 0
+
+/** Seconds into the arrival wave, or -1 when no wave is running. */
+let popClock = -1
+
+/** Accumulator that rations twinkle updates down to TWINKLE.hz. */
+let twinkleClock = 0
 
 /**
  * The star sprite: a glow texture, alpha-blended, lit purely by emission.
@@ -114,7 +129,18 @@ export function createStars(onTap: (index: number) => void): void {
       () => onTap(index)
     )
 
-    slots.push({ root, hit, visual, position: Vector3.Zero(), active: false })
+    slots.push({
+      root,
+      hit,
+      visual,
+      position: Vector3.Zero(),
+      active: false,
+      state: 'idle',
+      baseScale: 1,
+      // Golden-ratio stride: eight stars land eight different phases without
+      // needing a random number, so every client twinkles identically.
+      phase: (i * 0.6180339887) % 1
+    })
   }
 }
 
@@ -169,11 +195,10 @@ export function setStarVisual(index: number, state: StarVisualState): void {
           ? [COLOR.starSolved, GLOW.starSolved, 1.25]
           : [COLOR.starIdle, GLOW.starIdle, 1.0]
 
+  slot.state = state
+  slot.baseScale = scale
   applyStarMaterial(slot.visual, color, glow)
-  Transform.getMutable(slot.visual).scale = Vector3.scale(
-    Vector3.One(),
-    STAR_VISUAL_SIZE * scale
-  )
+  writeScale(slot, scale)
 
   // Record what should pulse. The concept doc is specific that a selected star
   // must pulse, so the player gets confirmation before committing the second tap.
@@ -184,14 +209,32 @@ export function setStarVisual(index: number, state: StarVisualState): void {
 }
 
 /**
- * Drives the pulse on the selected and hinted stars.
+ * Starts the arrival wave for the current constellation.
  *
- * This is the only per-frame work in the scene and it touches at most two
- * entities, which keeps the mobile frame budget flat.
+ * A new sky used to snap into existence, which read as a glitch rather than a
+ * transition. Now each star scales up in turn, so the shape assembles itself
+ * left to right in well under a second.
+ */
+export function popInStars(): void {
+  popClock = 0
+}
+
+/**
+ * Per-frame animation for the star pool: the arrival wave, the selected and
+ * hinted pulses, and the idle twinkle.
+ *
+ * The pulses touch at most two entities. The twinkle touches the idle stars,
+ * but only TWINKLE.hz times a second rather than every frame — material writes
+ * are the expensive part of any of this, so they are rationed rather than the
+ * work being spread out.
  */
 export function updateStarPulse(dt: number): void {
-  if (pulseSelected === null && pulseHinted === null) return
   pulseClock += dt
+
+  if (popClock >= 0) {
+    updatePopIn(dt)
+    return
+  }
 
   if (pulseSelected !== null) {
     pulse(pulseSelected, COLOR.starSelected, GLOW.starSelected, 1.45,
@@ -200,6 +243,70 @@ export function updateStarPulse(dt: number): void {
   if (pulseHinted !== null && pulseHinted !== pulseSelected) {
     pulse(pulseHinted, COLOR.starHinted, GLOW.starHinted, 1.3,
       PULSE.hintedHz, PULSE.hintedDepth)
+  }
+
+  twinkleClock += dt
+  if (twinkleClock >= 1 / TWINKLE.hz) {
+    twinkleClock = 0
+    updateTwinkle()
+  }
+}
+
+/**
+ * The arrival wave.
+ *
+ * Each star is offset by STAR_POP_STAGGER, and overshoots slightly before
+ * settling — a linear scale-up looks like a bug report, an overshoot looks
+ * like the star arrived.
+ */
+function updatePopIn(dt: number): void {
+  popClock += dt
+
+  let done = true
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i]
+    if (!slot.active) continue
+
+    const local = (popClock - i * STAR_POP_STAGGER) / STAR_POP_SECONDS
+    if (local >= 1) {
+      writeScale(slot, slot.baseScale)
+      continue
+    }
+    done = false
+    if (local <= 0) {
+      writeScale(slot, 0.001)
+      continue
+    }
+    // Ease-out-back: 1.7 is enough overshoot to read on a phone without
+    // looking like the star is wobbling.
+    const p = local - 1
+    const eased = p * p * (2.7 * p + 1.7) + 1
+    writeScale(slot, slot.baseScale * Math.max(0.001, eased))
+  }
+
+  if (done) {
+    popClock = -1
+    for (const slot of slots) {
+      if (slot.active) writeScale(slot, slot.baseScale)
+    }
+  }
+}
+
+/**
+ * A slow shimmer across the idle stars.
+ *
+ * Real starlight scintillates; a field of perfectly steady dots reads as
+ * geometry. The amplitude is deliberately small — this should be noticed only
+ * out of the corner of the eye, and never compete with the selected star.
+ */
+function updateTwinkle(): void {
+  const t = pulseClock * TWINKLE.rateHz
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i]
+    if (!slot.active || slot.state !== 'idle') continue
+    if (i === pulseSelected || i === pulseHinted) continue
+    const wave = Math.sin((t + slot.phase) * Math.PI * 2)
+    applyStarMaterial(slot.visual, COLOR.starIdle, GLOW.starIdle * (1 + wave * TWINKLE.depth))
   }
 }
 
@@ -215,9 +322,13 @@ function pulse(
   if (!slot || !slot.active) return
   const wave = Math.sin(pulseClock * hz * Math.PI * 2)
   applyStarMaterial(slot.visual, color, glow * (1 + wave * depth))
+  writeScale(slot, baseScale * (1 + wave * depth * 0.4))
+}
+
+function writeScale(slot: StarSlot, multiplier: number): void {
   Transform.getMutable(slot.visual).scale = Vector3.scale(
     Vector3.One(),
-    STAR_VISUAL_SIZE * baseScale * (1 + wave * depth * 0.4)
+    STAR_VISUAL_SIZE * multiplier
   )
 }
 
