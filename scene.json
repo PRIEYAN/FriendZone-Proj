@@ -3,7 +3,7 @@
   "runtimeVersion": "7",
   "display": {
     "title": "Celestial Cartography",
-    "description": "Trace the constellations together. A cooperative stargazing puzzle built for Decentraland Mobile.",
+    "description": "Ten constellations, one dark dome. Tap two stars to draw a line, trace the shape together, and watch the myth behind it draw itself across the sky. Built for Decentraland Mobile.",
     "navmapThumbnail": "images/scene-thumbnail.png"
   },
   "owner": "",
@@ -17,7 +17,9 @@
     "puzzle",
     "social",
     "cooperative",
-    "mobile"
+    "mobile",
+    "stars",
+    "astronomy"
   ],
   "worldConfiguration": {
     "name": "CHANGE-ME.dcl.eth",

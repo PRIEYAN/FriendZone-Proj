@@ -41,7 +41,14 @@ async function startServer() {
   log(`starting preview server on :${PORT}`)
   server = spawn(
     'npx',
-    ['sdk-commands', 'start', '--web', '--no-browser', '--port', String(PORT)],
+    [
+      'sdk-commands', 'start',
+      '--web',
+      '--no-browser',
+      // An unattended run has nobody to click through the wallet screen.
+      '--skip-auth-screen', 'true',
+      '--port', String(PORT)
+    ],
     { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] }
   )
   let out = ''
@@ -112,7 +119,10 @@ async function main() {
   log('scene bundle:', JSON.stringify(bundle))
 
   // 3. The real client.
-  const url = `https://decentraland.org/bevy-web/?preview=true&realm=http://127.0.0.1:${PORT}&position=0,0`
+  const url =
+    `https://decentraland.org/bevy-web/?preview=true` +
+    `&realm=http://127.0.0.1:${PORT}` +
+    `&position=0,0&skip-auth-screen=true`
   let explorer = 'SKIP'
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
