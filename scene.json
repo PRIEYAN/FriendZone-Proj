@@ -1,0 +1,65 @@
+{
+  "ecs7": true,
+  "runtimeVersion": "7",
+  "display": {
+    "title": "Celestial Cartography",
+    "description": "Trace the constellations together. A cooperative stargazing puzzle built for Decentraland Mobile.",
+    "navmapThumbnail": "images/scene-thumbnail.png"
+  },
+  "owner": "",
+  "contact": {
+    "name": "",
+    "email": ""
+  },
+  "main": "bin/index.js",
+  "tags": [
+    "game",
+    "puzzle",
+    "social",
+    "cooperative",
+    "mobile"
+  ],
+  "worldConfiguration": {
+    "name": "CHANGE-ME.dcl.eth",
+    "skyboxConfig": {
+      "fixedTime": 0
+    },
+    "miniMapConfig": {
+      "visible": false
+    }
+  },
+  "scene": {
+    "parcels": [
+      "0,0",
+      "0,1",
+      "1,0",
+      "1,1"
+    ],
+    "base": "0,0"
+  },
+  "spawnPoints": [
+    {
+      "name": "dome-center",
+      "default": true,
+      "position": {
+        "x": [
+          14,
+          18
+        ],
+        "y": [
+          0.2,
+          0.2
+        ],
+        "z": [
+          14,
+          18
+        ]
+      },
+      "cameraTarget": {
+        "x": 16,
+        "y": 12,
+        "z": 26
+      }
+    }
+  ]
+}

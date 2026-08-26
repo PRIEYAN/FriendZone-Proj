@@ -1,0 +1,21 @@
+{
+  "name": "celestial-cartography",
+  "version": "1.0.0",
+  "description": "A cooperative constellation-drawing experience for Decentraland Mobile.",
+  "scripts": {
+    "start": "sdk-commands start",
+    "start:web": "sdk-commands start --web",
+    "start:mobile": "sdk-commands start --mobile",
+    "start:headless": "sdk-commands start --no-client",
+    "build": "sdk-commands build",
+    "deploy": "sdk-commands deploy",
+    "upgrade": "npm install --save-dev @dcl/sdk@latest"
+  },
+  "devDependencies": {
+    "@dcl/js-runtime": "7.26.0",
+    "@dcl/sdk": "latest",
+    "typescript": "^5.4.5"
+  },
+  "license": "MIT",
+  "private": false
+}

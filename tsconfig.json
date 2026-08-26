@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "outDir": "bin",
+    "rootDir": "src",
+    "allowJs": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react",
+    "jsxFactory": "ReactEcs.createElement",
+    "jsxFragmentFactory": "ReactEcs.Fragment"
+  },
+  "include": ["src"],
+  "extends": "@dcl/sdk/types/tsconfig.ecs7.json"
+}
