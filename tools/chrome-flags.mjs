@@ -20,6 +20,10 @@ export const CHROME = '/usr/sbin/google-chrome-stable'
 
 export function chromeArgs(extra = []) {
   return [
+    // Chrome's Vulkan/ANGLE path refuses to run under its native Wayland
+    // backend ('--ozone-platform=wayland is not compatible with Vulkan'), so
+    // X11/XWayland is forced regardless of the host session type.
+    '--ozone-platform=x11',
     '--window-size=1600,900',
     // GPU: force the hardware path and refuse to silently fall back.
     '--ignore-gpu-blocklist',

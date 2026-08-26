@@ -3,6 +3,11 @@
 # on the discrete GPU. Ctrl+C stops both.
 #
 #   bash tools/play-gpu.sh [port]
+#
+# Chrome's Vulkan/ANGLE path is incompatible with its native Wayland backend
+# ('--ozone-platform=wayland is not compatible with Vulkan'), so this forces
+# the X11 (XWayland) backend regardless of the host session type. That is
+# harmless on an X11 session and required on a Wayland one.
 set -euo pipefail
 PORT="${1:-8000}"
 URL="https://decentraland.org/bevy-web/?preview=true&realm=http://127.0.0.1:${PORT}&position=0,0"
@@ -24,6 +29,7 @@ env \
   __GLX_VENDOR_LIBRARY_NAME=nvidia \
   __VK_LAYER_NV_optimus=NVIDIA_only \
   google-chrome-stable \
+    --ozone-platform=x11 \
     --ignore-gpu-blocklist \
     --enable-gpu-rasterization \
     --enable-zero-copy \
