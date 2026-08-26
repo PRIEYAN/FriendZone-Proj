@@ -53,11 +53,13 @@ const TELESCOPE = {
   barrelLength: 2.6,
   barrelPitchDeg: 58,
   /**
-   * The barrel's compass heading. Pointed at the same gap in the sky as the
-   * moon (see MOON.azimuthDeg below) so the prop reads as "aimed at
-   * something" rather than an arbitrary angle.
+   * The barrel's compass heading: the same one the moon sits on, so the prop
+   * reads as aimed at something rather than at an arbitrary angle. The pitch
+   * above is chosen for silhouette instead — steep enough to be unmistakably a
+   * telescope from across the room, which matters more than sighting any one
+   * object the player cannot look through it at anyway.
    */
-  barrelAzimuthDeg: 220,
+  barrelAzimuthDeg: 311,
   barrelColor: Color4.create(0.045, 0.045, 0.05, 1),
   rimRadius: 0.34,
   rimHeight: 0.06,
@@ -93,12 +95,26 @@ const COMPASS = {
   rotatingTickGlow: 0.6
 } as const
 
+/**
+ * The horizon ridge.
+ *
+ * Height is not a taste decision, it is a constraint. The ridge sits at radius
+ * ~14 and the stars sit on the shell at radius 15, so from the middle of the
+ * room a piece of height h hides everything below atan(h / 14). The lowest
+ * interactive star in the whole game is Scorpius at 15 degrees of elevation,
+ * and 14 * tan(15) is 3.75m -- so the original 5.6m ridge was quietly eating
+ * the bottom of a constellation the player is asked to solve.
+ *
+ * 2.2m caps the ridge at about 9 degrees from the centre of the dome, which
+ * clears every star and the moon with room to spare. Raise this and you will
+ * bury Scorpius.
+ */
 const HORIZON = {
   pieceCount: 26,
   radiusBase: 14.0,
   radiusJitter: 0.8,
-  heightMin: 1.4,
-  heightMax: 5.6,
+  heightMin: 0.8,
+  heightMax: 2.2,
   widthMin: 1.6,
   widthMax: 3.4,
   depth: 0.6,
@@ -109,16 +125,19 @@ const HORIZON = {
 
 const MOON = {
   /**
-   * Gap picked from constellations.ts: Cassiopeia sits at az 288 (spreadAz 36,
-   * so it occupies ~270-306), the Big Dipper at az 0 (spreadAz 46, ~337-23),
-   * and Orion at az 150 (spreadAz 40, ~130-170). That leaves a wide open gap
-   * from ~170 to ~270 with nothing in it; 220 sits in the middle of that gap
-   * with ~50 degrees of clearance on either side. Elevation 15 is also well
-   * below every constellation's lowest star (the lowest, Orion, only reaches
-   * down to ~23 degrees), so there is no vertical overlap either.
+   * Parked in a genuine hole in the sky.
+   *
+   * The ten constellations occupy these azimuth bands (centre +- spreadAz/2):
+   * Big Dipper 337-23, Crux 32-48, Aquila 57-79, Scorpius 87-121, Orion
+   * 130-170, Corvus 179-197, Lyra 205-223, Cygnus 232-262, Cassiopeia 270-306,
+   * Triangulum 316-328. The widest gap between neighbours is 306-316, so 311
+   * is the one azimuth with clearance on both sides.
+   *
+   * Elevation 20 keeps it low in the sky without putting it behind the
+   * horizon ridge, which caps out around 9 degrees (see HORIZON above).
    */
-  azimuthDeg: 220,
-  elevationDeg: 15,
+  azimuthDeg: 311,
+  elevationDeg: 20,
   diameter: 2.0,
   color: Color3.create(0.85, 0.83, 0.78),
   glow: 3.2,
