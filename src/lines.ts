@@ -23,7 +23,7 @@ import {
   VisibilityComponent
 } from '@dcl/sdk/ecs'
 import { Color3, Color4, Quaternion, Vector3 } from '@dcl/sdk/math'
-import { COLOR, GLOW, LINE_DRAW_SECONDS, LINE_THICKNESS } from './config'
+import { COLOR, GLOW, LINE_DRAW_SECONDS, LINE_THICKNESS, PARK_POSITION } from './config'
 import { ALL_PAIRS } from './constellations'
 import { starPosition, isStarActive } from './stars'
 
@@ -55,7 +55,7 @@ let animating = 0
 export function createLines(): void {
   for (let i = 0; i < ALL_PAIRS.length; i++) {
     const e = engine.addEntity()
-    Transform.create(e)
+    Transform.create(e, { position: PARK_POSITION })
     MeshRenderer.setBox(e)
     Material.setPbrMaterial(e, {
       albedoColor: Color4.create(0, 0, 0, 1),

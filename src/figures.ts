@@ -19,7 +19,7 @@ import {
   VisibilityComponent
 } from '@dcl/sdk/ecs'
 import { Color4, Quaternion, Vector3 } from '@dcl/sdk/math'
-import { COLOR, DOME_CENTER, DOME_RADIUS, GLOW } from './config'
+import { COLOR, DOME_CENTER, DOME_RADIUS, GLOW, PARK_POSITION } from './config'
 import { ConstellationDef } from './constellations'
 
 /** A polyline: consecutive points are joined. */
@@ -380,7 +380,7 @@ export function figureSegmentBudget(): number {
 export function createFigures(): void {
   for (let i = 0; i < MAX_SEGMENTS; i++) {
     const e = engine.addEntity()
-    Transform.create(e)
+    Transform.create(e, { position: PARK_POSITION })
     MeshRenderer.setBox(e)
     Material.setPbrMaterial(e, {
       albedoColor: Color4.create(0, 0, 0, 1),

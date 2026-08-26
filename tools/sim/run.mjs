@@ -226,6 +226,93 @@ frames(600) // twenty idle seconds: hints, meteors, motes, ambient systems
 check(world.errors.length === 0, 'twenty idle seconds throw nothing', world.errors[0])
 check(liveEntities() === startEntities, 'idling allocates no entities')
 
+// ── scene bounds ───────────────────────────────────────────────────────────
+//
+// A 2x2-parcel scene owns x,z in [0,32] and y up to log2(4+1)*20 = 46.4m.
+// Geometry outside that is the client's to cull, and it does so quietly — the
+// scene looks right in the editor and loses its background starfield in the
+// Explorer. Worth an assertion rather than a screenshot.
+//
+// Centres are not enough: a 30m floor centred at 16 is entirely legal and a 6m
+// sky quad centred at 1m of altitude is not, so this transforms all eight
+// corners of each mesh's local box by its own rotation before measuring.
+section('scene bounds')
+{
+  const LIMIT = 32
+  const HEIGHT = Math.log2(4 + 1) * 20
+  const transforms = mock.Transform._data
+
+  const composed = (entity, depth = 0) => {
+    const t = transforms.get(entity)
+    if (!t) return null
+    if (!t.parent || depth > 8) return t
+    const parent = composed(t.parent, depth + 1)
+    if (!parent) return t
+    return {
+      position: {
+        x: parent.position.x + t.position.x,
+        y: parent.position.y + t.position.y,
+        z: parent.position.z + t.position.z
+      },
+      scale: {
+        x: parent.scale.x * t.scale.x,
+        y: parent.scale.y * t.scale.y,
+        z: parent.scale.z * t.scale.z
+      },
+      rotation: t.rotation
+    }
+  }
+
+  /** Rotates a local offset by a quaternion, without pulling in a matrix type. */
+  const rotate = (v, q) => {
+    const { x, y, z, w } = q
+    const ix = w * v.x + y * v.z - z * v.y
+    const iy = w * v.y + z * v.x - x * v.z
+    const iz = w * v.z + x * v.y - y * v.x
+    const iw = -x * v.x - y * v.y - z * v.z
+    return {
+      x: ix * w + iw * -x + iy * -z - iz * -y,
+      y: iy * w + iw * -y + iz * -x - ix * -z,
+      z: iz * w + iw * -z + ix * -y - iy * -x
+    }
+  }
+
+  let outside = 0
+  let worst = null
+  for (const [entity] of transforms) {
+    const t = composed(entity)
+    if (!t) continue
+    const meshed = mock.MeshRenderer._data.has(entity) || mock.MeshCollider._data.has(entity)
+    if (!meshed) continue
+
+    const hx = Math.abs(t.scale.x) / 2
+    const hy = Math.abs(t.scale.y) / 2
+    const hz = Math.abs(t.scale.z) / 2
+
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const r = rotate({ x: sx * hx, y: sy * hy, z: sz * hz }, t.rotation)
+          const p = { x: t.position.x + r.x, y: t.position.y + r.y, z: t.position.z + r.z }
+          const over = Math.max(-p.x, p.x - LIMIT, -p.z, p.z - LIMIT, -p.y, p.y - HEIGHT)
+          if (over > 0.01) {
+            outside++
+            if (!worst || over > worst.over) worst = { entity, over, p }
+          }
+        }
+      }
+    }
+  }
+  console.log(`  ${transforms.size} placed entities, ${outside} corners outside the parcel`)
+  check(
+    outside === 0,
+    'every mesh sits inside the scene bounds',
+    worst
+      ? `worst: entity ${worst.entity} corner at (${worst.p.x.toFixed(1)}, ${worst.p.y.toFixed(2)}, ${worst.p.z.toFixed(1)}), ${worst.over.toFixed(2)}m over`
+      : ''
+  )
+}
+
 // ── material write budget ──────────────────────────────────────────────────
 //
 // A material write is a CRDT message plus a shader-parameter update on the real

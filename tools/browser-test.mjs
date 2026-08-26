@@ -27,8 +27,10 @@ const arg = (name, fallback) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback
 }
 const PORT = Number(arg('port', '8010'))
-const SECONDS = Number(arg('seconds', '90'))
+const SECONDS = Number(arg('seconds', '120'))
 const KEEP = argv.includes('--keep')
+/** How long to wait for the client to offer its guest control. */
+const GUEST_TIMEOUT = Number(arg('guest-timeout', '150'))
 const SHOTS = join(process.cwd(), 'docs', 'shots')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -105,16 +107,40 @@ async function main() {
   log('GPU:', gpu.renderer || 'none')
   if (software) log('!! WARNING: software rasteriser — these numbers mean nothing')
 
-  // 2. The scene's own bundle, fetched straight from the preview server. This
-  //    is the part that is genuinely ours, so it is checked unconditionally.
+  // 2. The scene as the client will actually receive it: resolve the deployed
+  //    entity for the base parcel, find the hash the manifest gives for
+  //    scene.json's `main`, and pull that file. This is the part that is
+  //    genuinely ours, so it is checked unconditionally -- and going through the
+  //    manifest rather than a guessed path also proves the manifest is sane.
   const bundle = await page.evaluate(async (port) => {
-    const r = await fetch(`http://127.0.0.1:${port}/content/contents/bin/index.js`).catch(() => null)
-    if (!r || !r.ok) {
-      const about = await fetch(`http://127.0.0.1:${port}/about`).catch(() => null)
-      return { ok: false, about: about ? about.status : null }
+    const base = `http://127.0.0.1:${port}`
+    const res = await fetch(`${base}/content/entities/active`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pointers: ['0,0'] })
+    }).catch(() => null)
+    if (!res || !res.ok) return { ok: false, stage: 'entities', status: res ? res.status : null }
+
+    const list = await res.json()
+    const entity = list[0]
+    if (!entity) return { ok: false, stage: 'no entity for 0,0' }
+
+    const mainFile = entity.metadata && entity.metadata.main
+    const entry = (entity.content || []).find((c) => c.file === mainFile)
+    if (!entry) return { ok: false, stage: 'manifest has no ' + mainFile }
+
+    const js = await fetch(`${base}/content/contents/${entry.hash}`).catch(() => null)
+    if (!js || !js.ok) return { ok: false, stage: 'contents', status: js ? js.status : null }
+
+    const text = await js.text()
+    return {
+      ok: true,
+      main: mainFile,
+      bytes: text.length,
+      files: entity.content.length,
+      title: entity.metadata.display ? entity.metadata.display.title : null,
+      exportsMain: /\bmain\b/.test(text)
     }
-    const text = await r.text()
-    return { ok: true, bytes: text.length, hasMain: /\bmain\b/.test(text) }
   }, PORT)
   log('scene bundle:', JSON.stringify(bundle))
 
@@ -126,9 +152,44 @@ async function main() {
   let explorer = 'SKIP'
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
-    for (let elapsed = 0; elapsed < SECONDS; elapsed += 10) {
-      await sleep(10_000)
-      const shot = join(SHOTS, `explorer-${String(elapsed + 10).padStart(3, '0')}s.png`)
+
+    // The explorer opens on its own sign-in wall, and the guest control does
+    // not exist yet when the page first paints -- the client downloads its
+    // engine first and only offers "explore as guest" once that finishes. So
+    // this polls rather than clicking once and giving up, and clicks through
+    // the mouse rather than calling el.click(), because the button listens for
+    // real pointer events.
+    let enteredAsGuest = null
+    for (let waited = 0; waited < GUEST_TIMEOUT && !enteredAsGuest; waited += 3) {
+      await sleep(3000)
+      const box = await page.evaluate(() => {
+        const visible = (el) => {
+          const r = el.getBoundingClientRect()
+          return r.width > 20 && r.height > 10
+        }
+        for (const el of document.querySelectorAll('button, a, [role="button"], div, span')) {
+          const text = (el.textContent || '').trim()
+          if (text.length > 40 || !/guest/i.test(text)) continue
+          if (el.querySelector('button, a, [role="button"]')) continue // outer wrapper
+          if (!visible(el)) continue
+          const r = el.getBoundingClientRect()
+          return { x: r.x + r.width / 2, y: r.y + r.height / 2, text }
+        }
+        return null
+      })
+      if (box) {
+        await page.mouse.click(box.x, box.y)
+        enteredAsGuest = box.text
+      } else if (waited % 15 === 0) {
+        const progress = await page.evaluate(() => document.body.innerText.slice(0, 120).replace(/\s+/g, ' '))
+        log(`waiting for the client (${waited}s): ${progress}`)
+      }
+    }
+    log('guest entry:', enteredAsGuest || `not offered within ${GUEST_TIMEOUT}s`)
+
+    for (let elapsed = 0; elapsed < SECONDS; elapsed += 15) {
+      await sleep(15_000)
+      const shot = join(SHOTS, `explorer-${String(elapsed + 15).padStart(3, '0')}s.png`)
       await page.screenshot({ path: shot })
       const state = await page.evaluate(() => {
         const c = document.querySelector('canvas')
@@ -139,7 +200,7 @@ async function main() {
           text: document.body.innerText.slice(0, 200)
         }
       })
-      log(`t+${elapsed + 10}s canvas=${state.canvas} ${state.w}x${state.h}`)
+      log(`t+${elapsed + 15}s canvas=${state.canvas} ${state.w}x${state.h}  ${state.text.replace(/\s+/g, ' ').slice(0, 70)}`)
       if (state.canvas && state.w > 100) explorer = 'LOADED'
     }
   } catch (e) {
@@ -158,7 +219,7 @@ async function main() {
 
   console.log('\n──────── browser test ────────')
   console.log(`GPU              ${software ? 'FAIL (software)' : 'PASS'}  ${gpu.renderer || ''}`)
-  console.log(`scene bundle     ${bundle.ok ? 'PASS' : 'FAIL'}  ${bundle.bytes ?? ''} bytes`)
+  console.log(`scene bundle     ${bundle.ok ? 'PASS' : 'FAIL'}  ${bundle.ok ? bundle.bytes + ' bytes, ' + bundle.files + ' files' : bundle.stage}`)
   console.log(`explorer canvas  ${explorer}`)
   console.log(`console errors   ${consoleErrors.length}`)
   console.log(`screenshots      docs/shots/`)

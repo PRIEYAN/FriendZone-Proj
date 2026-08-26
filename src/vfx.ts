@@ -32,7 +32,7 @@ import {
   MaterialTransparencyMode
 } from '@dcl/sdk/ecs'
 import { Color3, Color4, Quaternion, Vector3 } from '@dcl/sdk/math'
-import { DOME_CENTER, DOME_RADIUS, STAR_TEXTURE } from './config'
+import { DOME_CENTER, DOME_RADIUS, PARK_POSITION, STAR_TEXTURE } from './config'
 
 /* ========================================================================== *
  * Tunables
@@ -208,7 +208,7 @@ function writeSolidGlow(entity: Entity, cache: GlowCache, color: Color3, intensi
 /** A billboarded glow plane, hidden until an effect claims it. */
 function newGlowBillboard(): Entity {
   const e = newEntity()
-  Transform.create(e)
+  Transform.create(e, { position: PARK_POSITION })
   MeshRenderer.setPlane(e)
   Billboard.create(e, { billboardMode: BillboardMode.BM_ALL })
   VisibilityComponent.create(e, { visible: false })
@@ -218,7 +218,7 @@ function newGlowBillboard(): Entity {
 /** A solid stretched box, hidden until an effect claims it. */
 function newGlowBox(): Entity {
   const e = newEntity()
-  Transform.create(e)
+  Transform.create(e, { position: PARK_POSITION })
   MeshRenderer.setBox(e)
   VisibilityComponent.create(e, { visible: false })
   return e

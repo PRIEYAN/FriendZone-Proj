@@ -138,7 +138,7 @@ const MOON = {
    */
   azimuthDeg: 311,
   elevationDeg: 20,
-  diameter: 2.0,
+  diameter: 1.4,
   color: Color3.create(0.85, 0.83, 0.78),
   glow: 3.2,
   haloScale: 5.5,

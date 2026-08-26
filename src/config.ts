@@ -8,9 +8,47 @@
  */
 import { Color3, Color4, Vector3 } from '@dcl/sdk/math'
 
-/** Scene is 2x2 parcels (32x32m); the dome is centred on it. */
+/**
+ * Scene is 2x2 parcels (32x32m); the dome is centred on it.
+ *
+ * Every radius in the scene is a fraction of the 16m the parcel actually gives
+ * us from the centre to the wall, and they have to nest in this order:
+ *
+ *     stars (11.5) < figures (12.4) < background field (12.5-14.3)
+ *       < meteors (13.1) < horizon ridge (14) < the sky shell (15.2) < 16
+ *
+ * The star shell used to be 15, which put the background field out past 19 —
+ * three metres outside the scene's own bounds, where the client is entitled to
+ * cull it. Pulling everything in leaves room for the sky shell, which is what
+ * makes the dome a dome instead of an open field.
+ */
 export const DOME_CENTER = Vector3.create(16, 0, 16)
-export const DOME_RADIUS = 15
+export const DOME_RADIUS = 11.5
+
+/**
+ * The night sky itself.
+ *
+ * `skyboxConfig.fixedTime: 0` in scene.json only applies to a deployed World —
+ * in local preview, and anywhere the setting does not take, the client hands
+ * you a bright daytime sky and a planetarium full of faint emissive dots
+ * becomes completely unreadable. A scene whose core mechanic is only visible
+ * if a deploy-time flag took effect is a scene that is one config away from
+ * being broken, so the dome carries its own sky.
+ */
+export const SKY_SHELL_RADIUS = 15.2
+export const SKY_COLOR = Color3.create(0.015, 0.02, 0.055)
+
+/**
+ * Where a pooled entity waits while it is not in use.
+ *
+ * Not the origin, which is the obvious choice and the wrong one: (0,0,0) is the
+ * *corner* of the parcel, so a unit box parked there hangs half a metre outside
+ * the scene on three axes. The client's bounds checker does not care that the
+ * entity is invisible — it sees geometry out of bounds and treats the scene
+ * accordingly. Parking in the middle of the dome costs nothing and keeps every
+ * idle pool slot legal.
+ */
+export const PARK_POSITION = Vector3.create(16, 1, 16)
 
 /** Visual size of a star billboard, and the (larger) invisible tap target around it. */
 export const STAR_VISUAL_SIZE = 0.55
@@ -64,6 +102,8 @@ export const COLOR = {
   lineWrong: Color3.create(0.45, 0.45, 0.6),
   lineSolved: Color3.create(1.0, 0.9, 0.6),
   domeInterior: Color4.create(0.02, 0.02, 0.06, 1.0),
+  /** The floor. Emissive rather than albedo, so it stays dark under any sky. */
+  domeFloor: Color3.create(0.028, 0.03, 0.062),
   backgroundStar: Color3.create(0.5, 0.58, 0.85),
   figure: Color3.create(0.62, 0.84, 1.0)
 } as const
