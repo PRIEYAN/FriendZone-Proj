@@ -9,12 +9,18 @@
     "start:headless": "sdk-commands start --no-client",
     "build": "sdk-commands build",
     "deploy": "sdk-commands deploy",
-    "upgrade": "npm install --save-dev @dcl/sdk@latest"
+    "upgrade": "npm install --save-dev @dcl/sdk@latest",
+    "test": "node tools/sim/run.mjs",
+    "test:mobile": "node tools/sim/run.mjs --mobile --verbose",
+    "test:browser": "node tools/browser-test.mjs",
+    "assets": "python3 tools/generate_assets.py",
+    "preview:gpu": "bash tools/gpu-preview.sh"
   },
   "devDependencies": {
     "@dcl/js-runtime": "7.26.0",
     "@dcl/sdk": "latest",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "puppeteer-core": "^24.0.0"
   },
   "license": "MIT",
   "private": false
