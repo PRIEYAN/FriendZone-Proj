@@ -339,9 +339,38 @@ const MAX_SEGMENTS = Object.values(FIGURES).reduce((max, f) => {
   return Math.max(max, n)
 }, 0)
 
-const segments: Entity[] = []
-let fade = 0
-let fadeTarget = 0
+/**
+ * One box per stroke segment, plus everything the reveal needs to draw it on.
+ *
+ * The endpoints are kept here rather than recomputed, because the reveal reads
+ * them every frame while a stroke is growing and the projection is trigonometry.
+ */
+type Segment = {
+  entity: Entity
+  a: Vector3.MutableVector3
+  b: Vector3.MutableVector3
+  length: number
+  rotation: Quaternion.MutableQuaternion
+  /** Seconds into the reveal at which this segment starts drawing. */
+  delay: number
+}
+
+/** How thick a figure stroke is drawn, in metres. */
+const FIGURE_THICKNESS = 0.07
+
+/** How long one stroke takes to draw itself on. */
+const REVEAL_STROKE_SECONDS = 0.32
+
+/**
+ * Gap between consecutive strokes starting. Twenty-five segments at 45ms puts
+ * the last stroke under way about 1.1s in, which lands the whole reveal inside
+ * the banner's dwell time without any of it feeling hurried.
+ */
+const REVEAL_STAGGER = 0.045
+
+const segments: Segment[] = []
+let revealClock = 0
+let revealing = false
 let activeCount = 0
 
 export function figureSegmentBudget(): number {
@@ -360,7 +389,14 @@ export function createFigures(): void {
       roughness: 1
     })
     VisibilityComponent.create(e, { visible: false })
-    segments.push(e)
+    segments.push({
+      entity: e,
+      a: Vector3.Zero(),
+      b: Vector3.Zero(),
+      length: 0,
+      rotation: Quaternion.Identity(),
+      delay: 0
+    })
   }
 }
 
@@ -385,7 +421,18 @@ function figureWorldPosition(
   )
 }
 
-/** Lays out the figure for a constellation and starts it fading in. */
+/**
+ * Lays the figure out and starts it drawing itself on.
+ *
+ * The MVP cut called for a fade, and a fade is what this was: every stroke
+ * appearing at once, brightening together. That reads as an image being
+ * switched on. Drawing the strokes in sequence instead reads as something
+ * being *revealed* — which is the beat the whole puzzle is built toward, and
+ * the one a player is going to screenshot.
+ *
+ * Stroke order is authoring order, and the figures are authored body-first, so
+ * the shape assembles roughly the way you would sketch it.
+ */
 export function showFigure(c: ConstellationDef): void {
   const f = FIGURES[c.name]
   if (!f) return
@@ -393,31 +440,38 @@ export function showFigure(c: ConstellationDef): void {
   let i = 0
   for (const stroke of f.strokes) {
     for (let k = 0; k < stroke.length - 1 && i < segments.length; k++, i++) {
+      const seg = segments[i]
       const a = figureWorldPosition(c, f, stroke[k][0], stroke[k][1])
       const b = figureWorldPosition(c, f, stroke[k + 1][0], stroke[k + 1][1])
       const delta = Vector3.subtract(b, a)
-      const t = Transform.getMutable(segments[i])
-      t.position = Vector3.lerp(a, b, 0.5)
-      t.rotation = Quaternion.lookRotation(Vector3.normalize(delta))
-      t.scale = Vector3.create(0.07, 0.07, Vector3.length(delta))
-      VisibilityComponent.getMutable(segments[i]).visible = true
+      seg.a = a
+      seg.b = b
+      seg.length = Vector3.length(delta)
+      seg.rotation = Quaternion.lookRotation(Vector3.normalize(delta))
+      seg.delay = i * REVEAL_STAGGER
+      // Start at nothing. writeSegment draws it from here.
+      const t = Transform.getMutable(seg.entity)
+      t.position = a
+      t.rotation = seg.rotation
+      t.scale = Vector3.create(FIGURE_THICKNESS, FIGURE_THICKNESS, 0.001)
+      VisibilityComponent.getMutable(seg.entity).visible = true
     }
   }
   activeCount = i
   for (let k = i; k < segments.length; k++) {
-    VisibilityComponent.getMutable(segments[k]).visible = false
+    VisibilityComponent.getMutable(segments[k].entity).visible = false
   }
 
-  fade = 0
-  fadeTarget = 1
+  revealClock = 0
+  revealing = true
 }
 
 export function hideFigure(): void {
-  fadeTarget = 0
-  fade = 0
-  for (const e of segments) {
-    VisibilityComponent.getMutable(e).visible = false
-    Material.setPbrMaterial(e, {
+  revealing = false
+  revealClock = 0
+  for (const seg of segments) {
+    VisibilityComponent.getMutable(seg.entity).visible = false
+    Material.setPbrMaterial(seg.entity, {
       albedoColor: Color4.create(0, 0, 0, 1),
       emissiveColor: COLOR.figure,
       emissiveIntensity: 0,
@@ -432,23 +486,69 @@ export function figureTitle(c: ConstellationDef): string {
 }
 
 /**
- * Ramps the outline up. Runs only while a figure is actually fading, and only
- * touches the segments in use.
+ * Draws the outline on, one stroke after another.
+ *
+ * Runs only while a figure is actually revealing, and stops writing to a
+ * segment the moment that segment is finished — so the cost falls away as the
+ * reveal completes rather than continuing for as long as the figure is up.
  */
 export function updateFigureFade(dt: number): void {
-  if (activeCount === 0) return
-  if (fade >= fadeTarget) return
+  if (!revealing || activeCount === 0) return
 
-  fade = Math.min(fadeTarget, fade + dt / 1.5)
-  // Ease-out so it blooms quickly then settles.
-  const eased = 1 - Math.pow(1 - fade, 3)
+  revealClock += dt
+  let anyPending = false
 
   for (let i = 0; i < activeCount; i++) {
-    Material.setPbrMaterial(segments[i], {
-      albedoColor: Color4.create(0, 0, 0, 1),
-      emissiveColor: COLOR.figure,
-      emissiveIntensity: GLOW.figure * eased,
-      roughness: 1
-    })
+    const seg = segments[i]
+    const local = (revealClock - seg.delay) / REVEAL_STROKE_SECONDS
+
+    if (local <= 0) {
+      anyPending = true
+      continue
+    }
+    if (local >= 1) {
+      // Settle it exactly once, on the frame it finishes.
+      if (seg.length > 0) {
+        writeSegment(seg, 1)
+        seg.length = -seg.length // negative marks "already settled"
+      }
+      continue
+    }
+
+    anyPending = true
+    writeSegment(seg, 1 - Math.pow(1 - local, 2.4))
   }
+
+  if (!anyPending) {
+    revealing = false
+    // Restore the lengths the negative marker was hiding, so a second reveal of
+    // the same figure still knows how long each stroke is.
+    for (let i = 0; i < activeCount; i++) {
+      if (segments[i].length < 0) segments[i].length = -segments[i].length
+    }
+  }
+}
+
+/**
+ * Grows one stroke from its start point to `progress` along its own length.
+ *
+ * The midpoint travels with the tip, same as a drawn line does — a segment
+ * scaled about its centre would appear to sprout out of the middle of the
+ * stroke instead of being drawn from one end.
+ */
+function writeSegment(seg: Segment, progress: number): void {
+  const length = Math.abs(seg.length)
+  const drawn = Math.max(0.001, length * progress)
+
+  const t = Transform.getMutable(seg.entity)
+  t.position = Vector3.lerp(seg.a, seg.b, progress * 0.5)
+  t.rotation = seg.rotation
+  t.scale = Vector3.create(FIGURE_THICKNESS, FIGURE_THICKNESS, drawn)
+
+  Material.setPbrMaterial(seg.entity, {
+    albedoColor: Color4.create(0, 0, 0, 1),
+    emissiveColor: COLOR.figure,
+    emissiveIntensity: GLOW.figure * progress,
+    roughness: 1
+  })
 }
