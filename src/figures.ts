@@ -130,10 +130,207 @@ const THE_QUEEN: FigureDef = {
   ]
 }
 
+/**
+ * Triangulum. The three stars already draw the triangle itself, so the figure
+ * adds the heraldic reading: a radiant Greek delta — rays off each vertex, a
+ * nested inner triangle, and a halo ring beneath it.
+ */
+const THE_TRIANGLE: FigureDef = {
+  title: 'The Triangle',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Rays off each vertex
+    [[-0.6, -0.5], [-0.85, -0.7]],
+    [[0.7, -0.3], [0.98, -0.42]],
+    [[0.1, 0.8], [0.13, 1.12]],
+    // Nested inner triangle
+    [[-0.2, -0.15], [0.25, -0.05], [0.05, 0.35], [-0.2, -0.15]],
+    // Halo ring beneath the glyph
+    [
+      [0.07, 0.15],
+      [0.21, 0.08],
+      [0.21, -0.08],
+      [0.07, -0.15],
+      [-0.07, -0.08],
+      [-0.07, 0.08],
+      [0.07, 0.15]
+    ]
+  ]
+}
+
+/**
+ * Crux. The puzzle already draws both arms of the cross, so the figure adds
+ * the decorative reading: serifed tips, a central gem at the crossing, and a
+ * halo ring — the Southern Cross as a wrought emblem.
+ */
+const THE_SOUTHERN_CROSS: FigureDef = {
+  title: 'The Southern Cross',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Serifs at each of the four tips
+    [[-0.12, 0.85], [0.12, 0.85]],
+    [[-0.12, -0.85], [0.12, -0.85]],
+    [[-0.65, 0.02], [-0.65, 0.28]],
+    [[0.65, -0.17], [0.65, 0.07]],
+    // Central gem at the crossing
+    [[0.0, 0.15], [0.15, 0.03], [0.0, -0.09], [-0.15, 0.03], [0.0, 0.15]],
+    // Halo ring
+    [
+      [0.0, 0.42],
+      [0.3, 0.21],
+      [0.3, -0.21],
+      [0.0, -0.42],
+      [-0.3, -0.21],
+      [-0.3, 0.21],
+      [0.0, 0.42]
+    ]
+  ]
+}
+
+/**
+ * Corvus. The quadrilateral is already the crow's sail-like body, so the
+ * figure adds the head off Minkar (beak, eye, crest) and fans of wing and
+ * tail feathers off the far corners.
+ */
+const THE_CROW: FigureDef = {
+  title: 'The Crow',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Beak
+    [[-0.9, 0.05], [-1.15, -0.05], [-0.95, -0.15]],
+    // Eye
+    [[-1.0, 0.15], [-1.08, 0.1], [-1.0, 0.05]],
+    // Crest
+    [[-0.9, 0.05], [-0.85, 0.3], [-0.75, 0.35]],
+    // Wing feathers off Gienah
+    [[0.6, 0.55], [0.95, 0.75]],
+    [[0.6, 0.55], [1.0, 0.55]],
+    [[0.6, 0.55], [0.9, 0.3]],
+    // Tail feathers off Kraz and Algorab
+    [[0.5, -0.5], [0.65, -0.85]],
+    [[-0.55, -0.45], [-0.7, -0.8]]
+  ]
+}
+
+/**
+ * Lyra. The parallelogram is already the soundbox, so the figure adds the two
+ * curved arms rising to a crossbar near Vega, the strings between them, and a
+ * tortoise-shell base beneath — Hermes's lyre.
+ */
+const THE_LYRE: FigureDef = {
+  title: 'The Lyre',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Left arm curving up to the crossbar
+    [[-0.15, -0.35], [-0.55, 0.1], [-0.5, 0.6], [-0.15, 0.85]],
+    // Right arm curving up to the crossbar
+    [[0.5, -0.1], [0.75, 0.3], [0.55, 0.75], [0.15, 0.85]],
+    // Crossbar
+    [[-0.15, 0.85], [0.15, 0.85]],
+    // Strings
+    [[-0.1, 0.85], [-0.05, -0.1]],
+    [[0.0, 0.85], [0.05, -0.3]],
+    [[0.1, 0.85], [0.2, -0.5]],
+    // Tortoise-shell base
+    [[-0.3, -0.6], [0.0, -0.9], [0.4, -0.6], [0.05, -0.45], [-0.3, -0.6]]
+  ]
+}
+
+/**
+ * Aquila. The body line already runs Tarazed-Altair-Alshain, so the figure
+ * adds spread wings off the outer stars, a hooked head, and a fanned tail.
+ */
+const THE_EAGLE: FigureDef = {
+  title: 'The Eagle',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Left wing
+    [[-0.5, 0.35], [-1.0, 0.55], [-1.3, 0.35], [-1.15, 0.1]],
+    // Right wing
+    [[0.7, 0.55], [1.15, 0.5], [1.35, 0.2], [1.1, 0.0]],
+    // Head and hooked beak
+    [[-0.5, 0.35], [-0.65, 0.65], [-0.55, 0.85], [-0.35, 0.7], [-0.4, 0.5]],
+    // Tail fan
+    [[-0.75, -0.5], [-0.9, -0.85]],
+    [[-0.75, -0.5], [-0.65, -0.9]],
+    [[-0.75, -0.5], [-0.5, -0.85]]
+  ]
+}
+
+/**
+ * Cygnus. The Northern Cross is already the wingspan and body, so the figure
+ * adds the head and beak off Albireo and feathered fans off both wingtips
+ * and the tail.
+ */
+const THE_SWAN: FigureDef = {
+  title: 'The Swan',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Head and beak, curving down from Albireo
+    [[0.0, -0.85], [-0.12, -1.05], [0.05, -1.1], [0.15, -0.95]],
+    // Left wing feathers off Gienah Cygni
+    [[-0.75, 0.05], [-1.05, 0.3]],
+    [[-0.75, 0.05], [-1.15, 0.05]],
+    [[-0.75, 0.05], [-1.05, -0.2]],
+    // Right wing feathers off Delta Cygni
+    [[0.75, 0.2], [1.05, 0.45]],
+    [[0.75, 0.2], [1.15, 0.2]],
+    [[0.75, 0.2], [1.05, -0.05]],
+    // Tail feathers off Deneb
+    [[0.0, 0.9], [-0.2, 1.15]],
+    [[0.0, 0.9], [0.0, 1.25]],
+    [[0.0, 0.9], [0.2, 1.15]]
+  ]
+}
+
+/**
+ * Scorpius. The eight-star chain is already the curling body, so the figure
+ * adds pincers off the head end, legs along the flanks, and the hooked barb
+ * beyond the stinger.
+ */
+const THE_SCORPION: FigureDef = {
+  title: 'The Scorpion',
+  scale: 1.0,
+  offsetU: 0.0,
+  offsetV: 0.0,
+  strokes: [
+    // Pincers off Acrab
+    [[-0.85, 0.8], [-1.2, 0.9], [-1.4, 0.7]],
+    [[-0.85, 0.8], [-1.1, 1.15], [-0.9, 1.35]],
+    // Legs along the body
+    [[-0.6, 0.65], [-0.9, 0.75]],
+    [[-0.25, 0.35], [-0.55, 0.45]],
+    [[0.05, 0.0], [0.35, 0.15]],
+    [[0.15, -0.35], [0.45, -0.25]],
+    [[0.0, -0.65], [-0.3, -0.5]],
+    // Hooked barb beyond Lesath
+    [[-0.55, -0.75], [-0.75, -0.55], [-0.6, -0.4]]
+  ]
+}
+
 export const FIGURES: Record<string, FigureDef> = {
+  Triangulum: THE_TRIANGLE,
+  Crux: THE_SOUTHERN_CROSS,
+  Corvus: THE_CROW,
   Cassiopeia: THE_QUEEN,
+  Lyra: THE_LYRE,
+  Aquila: THE_EAGLE,
+  Cygnus: THE_SWAN,
   'The Big Dipper': GREAT_BEAR,
-  Orion: THE_HUNTER
+  Orion: THE_HUNTER,
+  Scorpius: THE_SCORPION
 }
 
 /** Widest figure decides the pool size. */
